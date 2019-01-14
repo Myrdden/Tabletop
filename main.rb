@@ -1,7 +1,7 @@
 $current = 0
 
 def parseCoin(x)
-    x.sub!(/t(?!\.|$)/, 'T,')
+    x.sub!(/t(?!\.|\s|$)/, 'T,')
     xs = x.split(/\s|\/|\.|,/)
     ys = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
     xs.each do |i|
@@ -37,6 +37,7 @@ def parseCoin(x)
             ys[13] = 0
         end
     end
+    x.sub!('T,', 't')
     return ys
 end
 
@@ -49,18 +50,20 @@ class Purse
         @owner = ""
         @coins = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     end
-    def show
-        print "\"#{@name}\" contains: "
+    def count(purse = @coins)
+        if purse.equal?(@coins)
+            print "\"#{@name}\" contains: "
+        end
         i = 0
         xs = ""
         until i == 13 do
-            i == 7 && (@coins[4] != 0 || @coins[5] != 0 || @coins[6] != 0) ? xs += ',' : xs
-            if @coins[i] != 0
-                xs += "#{@coins[i]}#{@@suffix[i]}"
+            i == 7 && (purse[4] != 0 || purse[5] != 0 || purse[6] != 0) ? xs += ',' : xs
+            if purse[i] != 0
+                xs += "#{purse[i]}#{@@suffix[i]}"
                 if i > 7 && i < 13
                     j = i + 1
                     until j == 13 do
-                        if @coins[j] != 0
+                        if purse[j] != 0
                             xs += '.'
                             j = 12
                         end
@@ -72,12 +75,18 @@ class Purse
         end
         puts xs[-1] == '/' ? xs += '-' : xs
     end
-    def round(version = 0)
-        print "\"#{@name}\" rounds to: "
-        t = i = 0
-        until i == 13 do
-            t += @coins[i] * @@mult[i]
-            i += 1
+    def round(purse = @coins, version = 0)
+        if purse.instance_of? Array
+            if purse.equal?(@coins)
+                print "\"#{@name}\" rounds to: "
+            end
+            t = i = 0
+            until i == 13 do
+                t += @coins[i] * @@mult[i]
+                i += 1
+            end
+        else
+            t = purse
         end
         xs = ""
         if version == 0
@@ -91,7 +100,56 @@ class Purse
             t = t % 2
             t == 1 ? xs += ".1b" : xs
         end
-        puts xs[-1] == '/' ? xs += '-' : xs
+        if purse.instance_of? Array
+            puts xs[-1] == '/' ? xs += '-' : xs
+        else
+            print xs[-1] == '/' ? xs += '-' : xs
+        end
+    end
+    def tally(inp, purse = @coins)
+        xs = parseCoin(inp)
+        if xs[13] == 1
+            t = i = 0
+            until i == 13 do
+                t += xs[i] * @@mult[i]
+                i += 1
+            end
+            xs = purse.dup
+            ys = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            while t > 20736 && xs[0] > 0 do ys[0] += 1; t -= 20736; xs[0] -= 1; end
+            while t > 3456 && xs[1] > 0 do ys[1] += 1; t -= 3456; xs[1] -= 1; end
+            while t > 1728 && xs[2] > 0 do ys[2] += 1; t -= 1728; xs[2] -= 1; end
+            while t > 864 && xs[3] > 0 do ys[3] += 1; t -= 864; xs[3] -= 1; end
+            while t > 288 && xs[4] > 0 do ys[4] += 1; t -= 288; xs[4] -= 1; end
+            while t > 144 && xs[5] > 0 do ys[5] += 1; t -= 144; xs[5] -= 1; end
+            while t > 72 && xs[6] > 0 do ys[6] += 1; t -= 72; xs[6] -= 1; end
+            while t > 12 && xs[7] > 0 do ys[7] += 1; t -= 12; xs[7] -= 1; end
+            while t > 6 && xs[8] > 0 do ys[8] += 1; t -= 6; xs[8] -= 1; end
+            while t > 4 && xs[9] > 0 do ys[9] += 1; t -= 4; xs[9] -= 1; end
+            while t > 3 && xs[10] > 0 do ys[10] += 1; t -= 3; xs[10] -= 1; end
+            while t > 2 && xs[11] > 0 do ys[11] += 1; t -= 2; xs[11] -= 1; end
+            while t > 0 && xs[12] > 0 do ys[12] += 1; t -= 1; xs[12] -= 1; end
+            if t > 0
+                if purse.equal?(@coins)
+                    print "\"#{@name}\" is short: "
+                else
+                    print "Purse is short "
+                end
+                round(t)
+                puts" of Tally: #{inp}"
+            else
+                print "Tally #{inp} can be paid from "
+                if purse.equal?(@coins)
+                    print "\"#{@name}\""
+                else
+                    print "purse"
+                end
+                print " with: "
+                count(ys)
+            end
+        else
+            puts "Failed."
+        end
     end
     def add(inp)
         xs = parseCoin(inp)
@@ -138,13 +196,13 @@ test.coins[6] = 143
 test.coins[2] = 4
 test.coins[10] = 5
 test.coins[12] = 15
-test.show
+test.count
 test.round
-test.add("4Lb 2t14s,8/7h.5q.4p.15b")
-test.show
-test.round
-test.show
-test.round
+test.tally("8S 4t14s,24/7h.73p.14b")
+b = Purse.new
+b.name = "b"
+b.add("8S 4t 4p")
+b.count
 # puts "Welcome to whatever this is."
 # puts "Type \"help\" for commands."
 # puts "Type \"exit\", \"quit\", or \"q\" to exit."
